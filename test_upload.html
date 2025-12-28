@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>活动图片上传测试</title>
+    <meta charset="utf-8">
+</head>
+<body>
+    <h1>活动图片上传测试</h1>
+    <form id="activityForm" enctype="multipart/form-data">
+        <div>
+            <label for="title">标题:</label>
+            <input type="text" id="title" name="title" required><br><br>
+        </div>
+        
+        <div>
+            <label for="description">描述:</label>
+            <textarea id="description" name="description" required></textarea><br><br>
+        </div>
+        
+        <div>
+            <label for="location">地点:</label>
+            <input type="text" id="location" name="location" required><br><br>
+        </div>
+        
+        <div>
+            <label for="start_time">开始时间:</label>
+            <input type="datetime-local" id="start_time" name="start_time" required><br><br>
+        </div>
+        
+        <div>
+            <label for="end_time">结束时间:</label>
+            <input type="datetime-local" id="end_time" name="end_time" required><br><br>
+        </div>
+        
+        <div>
+            <label for="max_participants">最大参与人数:</label>
+            <input type="number" id="max_participants" name="max_participants" required><br><br>
+        </div>
+        
+        <div>
+            <label for="cover_image">封面图片:</label>
+            <input type="file" id="cover_image" name="cover_image" accept="image/*"><br><br>
+        </div>
+        
+        <div>
+            <label for="token">JWT Token:</label>
+            <input type="text" id="token" name="token" required><br><br>
+        </div>
+        
+        <button type="submit">创建活动</button>
+    </form>
+    
+    <div id="result"></div>
+    
+    <script>
+        document.getElementById('activityForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // 获取表单数据
+            const formData = new FormData();
+            
+            // 创建JSON数据对象
+            const jsonData = {
+                title: document.getElementById('title').value,
+                description: document.getElementById('description').value,
+                location: document.getElementById('location').value,
+                start_time: document.getElementById('start_time').value,
+                end_time: document.getElementById('end_time').value,
+                max_participants: parseInt(document.getElementById('max_participants').value)
+            };
+            
+            // 将JSON数据添加到FormData
+            formData.append('data', JSON.stringify(jsonData));
+            
+            // 添加文件
+            const fileInput = document.getElementById('cover_image');
+            if (fileInput.files.length > 0) {
+                formData.append('cover_image', fileInput.files[0]);
+            }
+            
+            // 发送请求
+            const token = document.getElementById('token').value;
+            fetch('/api/activities/', {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer ' + token
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('result').innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            })
+            .catch(error => {
+                document.getElementById('result').innerHTML = '<p>错误: ' + error.message + '</p>';
+            });
+        });
+    </script>
+</body>
+</html>

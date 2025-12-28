@@ -1,0 +1,20 @@
+# requirements.txt
+# Flask框架相关
+Flask==3.0.3
+Flask-SQLAlchemy==3.1.1
+Flask-Migrate==4.0.7
+Flask-JWT-Extended==4.6.0
+Flask-CORS==4.0.1
+
+# 数据库相关
+SQLAlchemy==2.0.31
+pymysql==1.1.1
+
+# 工具库
+Werkzeug==3.0.3
+PyJWT==2.8.0
+python-dotenv==1.0.1
+
+# 其他
+requests==2.32.3
+python-dateutil==2.9.0.post0
