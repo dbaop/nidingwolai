@@ -1,6 +1,6 @@
 # app/routes/activity.py
 from flask import Blueprint, request, jsonify, current_app
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 from werkzeug.utils import secure_filename
 from app import db
@@ -36,9 +36,31 @@ def create_activity():
             return jsonify({'status': 'error', 'message': f'Missing required field: {field}'}), 400
     
     try:
-        # 转换时间格式
-        start_time = datetime.fromisoformat(data['start_time'])
-        end_time = datetime.fromisoformat(data['end_time'])
+        # 转换时间格式，处理带Z后缀的ISO时间格式
+        # 确保时间字段是字符串类型
+        start_time_raw = data['start_time']
+        end_time_raw = data['end_time']
+        
+        # 如果是整数，可能是时间戳，需要先转换
+        if isinstance(start_time_raw, int):
+            start_time = datetime.fromtimestamp(start_time_raw, timezone.utc)
+        else:
+            # 处理字符串类型，支持带Z后缀的ISO格式
+            start_time_str = str(start_time_raw).replace('Z', '+00:00')
+            # 如果字符串没有时区信息，添加UTC时区
+            if '+' not in start_time_str and 'Z' not in start_time_str:
+                start_time_str += '+00:00'
+            start_time = datetime.fromisoformat(start_time_str)
+        
+        if isinstance(end_time_raw, int):
+            end_time = datetime.fromtimestamp(end_time_raw, timezone.utc)
+        else:
+            # 处理字符串类型，支持带Z后缀的ISO格式
+            end_time_str = str(end_time_raw).replace('Z', '+00:00')
+            # 如果字符串没有时区信息，添加UTC时区
+            if '+' not in end_time_str and 'Z' not in end_time_str:
+                end_time_str += '+00:00'
+            end_time = datetime.fromisoformat(end_time_str)
         
         # 处理文件上传
         cover_image_url = None
@@ -57,14 +79,30 @@ def create_activity():
                 cover_image_url = f"/uploads/{filename}"
         
         # 创建活动
-        # 处理时间字段
+        # 处理时间字段，处理带Z后缀的ISO时间格式
         registration_deadline = None
-        if 'registration_deadline' in data:
-            registration_deadline = datetime.fromisoformat(data['registration_deadline'])
+        if 'registration_deadline' in data and data['registration_deadline']:
+            reg_deadline_raw = data['registration_deadline']
+            if isinstance(reg_deadline_raw, int):
+                registration_deadline = datetime.fromtimestamp(reg_deadline_raw, timezone.utc)
+            else:
+                reg_deadline_str = str(reg_deadline_raw).replace('Z', '+00:00')
+                # 如果字符串没有时区信息，添加UTC时区
+                if '+' not in reg_deadline_str and 'Z' not in reg_deadline_str:
+                    reg_deadline_str += '+00:00'
+                registration_deadline = datetime.fromisoformat(reg_deadline_str)
         
         refund_deadline = None
-        if 'refund_deadline' in data:
-            refund_deadline = datetime.fromisoformat(data['refund_deadline'])
+        if 'refund_deadline' in data and data['refund_deadline']:
+            refund_deadline_raw = data['refund_deadline']
+            if isinstance(refund_deadline_raw, int):
+                refund_deadline = datetime.fromtimestamp(refund_deadline_raw, timezone.utc)
+            else:
+                refund_deadline_str = str(refund_deadline_raw).replace('Z', '+00:00')
+                # 如果字符串没有时区信息，添加UTC时区
+                if '+' not in refund_deadline_str and 'Z' not in refund_deadline_str:
+                    refund_deadline_str += '+00:00'
+                refund_deadline = datetime.fromisoformat(refund_deadline_str)
             
         new_activity = Activity(
             title=data['title'],
@@ -90,7 +128,7 @@ def create_activity():
             deposit_amount=data.get('deposit_amount', 0.0),
             requirements=data.get('requirements'),
             cover_image_url=cover_image_url,  # 添加封面图片URL
-            status='active' if start_time > datetime.utcnow() else 'completed'
+            status='active' if start_time > datetime.now(timezone.utc) else 'completed'
         )
         
         db.session.add(new_activity)
@@ -154,13 +192,21 @@ def get_activity_list():
     
     if start_time_min:
         try:
-            query = query.filter(Activity.start_time >= datetime.fromisoformat(start_time_min))
+            start_time_min_str = start_time_min.replace('Z', '+00:00')
+            # 如果字符串没有时区信息，添加UTC时区
+            if '+' not in start_time_min_str and 'Z' not in start_time_min_str:
+                start_time_min_str += '+00:00'
+            query = query.filter(Activity.start_time >= datetime.fromisoformat(start_time_min_str))
         except:
             pass
     
     if start_time_max:
         try:
-            query = query.filter(Activity.start_time <= datetime.fromisoformat(start_time_max))
+            start_time_max_str = start_time_max.replace('Z', '+00:00')
+            # 如果字符串没有时区信息，添加UTC时区
+            if '+' not in start_time_max_str and 'Z' not in start_time_max_str:
+                start_time_max_str += '+00:00'
+            query = query.filter(Activity.start_time <= datetime.fromisoformat(start_time_max_str))
         except:
             pass
     
@@ -235,20 +281,52 @@ def update_activity(activity_id):
             activity.latitude = data['latitude']
         
         if 'start_time' in data:
-            activity.start_time = datetime.fromisoformat(data['start_time'])
+            start_time_raw = data['start_time']
+            if isinstance(start_time_raw, int):
+                activity.start_time = datetime.fromtimestamp(start_time_raw, timezone.utc)
+            else:
+                start_time_str = str(start_time_raw).replace('Z', '+00:00')
+                # 如果字符串没有时区信息，添加UTC时区
+                if '+' not in start_time_str and 'Z' not in start_time_str:
+                    start_time_str += '+00:00'
+                activity.start_time = datetime.fromisoformat(start_time_str)
         
         if 'end_time' in data:
-            activity.end_time = datetime.fromisoformat(data['end_time'])
+            end_time_raw = data['end_time']
+            if isinstance(end_time_raw, int):
+                activity.end_time = datetime.fromtimestamp(end_time_raw, timezone.utc)
+            else:
+                end_time_str = str(end_time_raw).replace('Z', '+00:00')
+                # 如果字符串没有时区信息，添加UTC时区
+                if '+' not in end_time_str and 'Z' not in end_time_str:
+                    end_time_str += '+00:00'
+                activity.end_time = datetime.fromisoformat(end_time_str)
         
         if 'registration_deadline' in data:
             if data['registration_deadline']:
-                activity.registration_deadline = datetime.fromisoformat(data['registration_deadline'])
+                reg_deadline_raw = data['registration_deadline']
+                if isinstance(reg_deadline_raw, int):
+                    activity.registration_deadline = datetime.fromtimestamp(reg_deadline_raw, timezone.utc)
+                else:
+                    reg_deadline_str = str(reg_deadline_raw).replace('Z', '+00:00')
+                    # 如果字符串没有时区信息，添加UTC时区
+                    if '+' not in reg_deadline_str and 'Z' not in reg_deadline_str:
+                        reg_deadline_str += '+00:00'
+                    activity.registration_deadline = datetime.fromisoformat(reg_deadline_str)
             else:
                 activity.registration_deadline = None
         
         if 'refund_deadline' in data:
             if data['refund_deadline']:
-                activity.refund_deadline = datetime.fromisoformat(data['refund_deadline'])
+                refund_deadline_raw = data['refund_deadline']
+                if isinstance(refund_deadline_raw, int):
+                    activity.refund_deadline = datetime.fromtimestamp(refund_deadline_raw, timezone.utc)
+                else:
+                    refund_deadline_str = str(refund_deadline_raw).replace('Z', '+00:00')
+                    # 如果字符串没有时区信息，添加UTC时区
+                    if '+' not in refund_deadline_str and 'Z' not in refund_deadline_str:
+                        refund_deadline_str += '+00:00'
+                    activity.refund_deadline = datetime.fromisoformat(refund_deadline_str)
             else:
                 activity.refund_deadline = None
         
