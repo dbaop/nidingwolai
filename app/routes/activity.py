@@ -6,6 +6,7 @@ from werkzeug.utils import secure_filename
 from app import db
 from app.models import Activity, Enrollment, ActivityTag, InterestTag
 from app.utils.auth import jwt_required, get_current_user, is_organizer
+from app.utils.helpers import parse_datetime
 
 activity_bp = Blueprint('activity', __name__)
 
@@ -18,13 +19,26 @@ def create_activity():
     if not user:
         return jsonify({'status': 'error', 'message': 'User not found'}), 404
     
+    # 添加调试日志
+    import logging
+    logging.basicConfig(level=logging.DEBUG)
+    logger = logging.getLogger(__name__)
+    
+    # 记录请求信息
+    logger.debug(f"请求方法: {request.method}")
+    logger.debug(f"请求头: {dict(request.headers)}")
+    logger.debug(f"请求表单: {dict(request.form)}")
+    logger.debug(f"请求文件: {list(request.files.keys())}")
+    
     # 处理JSON数据和文件上传
     data = request.form.get('data')
     if data:
         import json
+        logger.debug(f"表单中的data字段: {data}")
         data = json.loads(data)
     else:
         data = request.get_json()
+        logger.debug(f"JSON数据: {data}")
     
     if not data:
         return jsonify({'status': 'error', 'message': 'Invalid input'}), 400
@@ -37,34 +51,67 @@ def create_activity():
     
     try:
         # 转换时间格式
-        start_time = datetime.fromisoformat(data['start_time'])
-        end_time = datetime.fromisoformat(data['end_time'])
+        start_time = parse_datetime(data['start_time'])
+        end_time = parse_datetime(data['end_time'])
+        if not start_time or not end_time:
+            return jsonify({'status': 'error', 'message': 'Invalid date format for start_time or end_time'}), 400
         
-        # 处理文件上传
+        # 处理文件上传或URL设置
         cover_image_url = None
-        if 'cover_image' in request.files:
-            file = request.files['cover_image']
-            if file and file.filename:
-                filename = secure_filename(file.filename)
-                # 确保上传目录存在
-                upload_folder = current_app.config['UPLOAD_FOLDER']
-                if not os.path.exists(upload_folder):
-                    os.makedirs(upload_folder)
-                
-                # 保存文件
-                filepath = os.path.join(upload_folder, filename)
-                file.save(filepath)
-                cover_image_url = f"/uploads/{filename}"
+        logger.debug(f"初始cover_image_url: {cover_image_url}")
+        
+        # 1. 首先检查是否有文件上传，支持多种字段名称
+        file_fields = ['cover_image', 'file', 'image', 'avatar']
+        file = None
+        
+        for field_name in file_fields:
+            if field_name in request.files:
+                file = request.files[field_name]
+                logger.debug(f"找到文件字段: {field_name}, 文件名: {file.filename}")
+                break
+        
+        if file and file.filename:
+            filename = secure_filename(file.filename)
+            logger.debug(f"安全文件名: {filename}")
+            # 确保上传目录存在
+            upload_folder = current_app.config['UPLOAD_FOLDER']
+            logger.debug(f"上传目录: {upload_folder}")
+            if not os.path.exists(upload_folder):
+                os.makedirs(upload_folder)
+            
+            # 保存文件
+            filepath = os.path.join(upload_folder, filename)
+            file.save(filepath)
+            cover_image_url = f"/uploads/{filename}"
+            logger.debug(f"文件上传后cover_image_url: {cover_image_url}")
+        
+        # 2. 如果没有文件上传，检查是否有直接提供的图片URL（JSON数据中）
+        if not cover_image_url:
+            # 支持多种可能的图片字段名称
+            image_fields = ['cover_image_url', 'image', 'img', 'picture', 'pic']
+            
+            for field_name in image_fields:
+                if field_name in data and data[field_name]:
+                    logger.debug(f"从data中获取图片URL，字段名: {field_name}, URL: {data[field_name]}")
+                    cover_image_url = data[field_name]
+                    break
+        
+        # 3. 额外检查表单中是否有cover_image_url字段（处理form-data中的URL参数）
+        if not cover_image_url and 'cover_image_url' in request.form and request.form['cover_image_url']:
+            logger.debug(f"从表单中获取cover_image_url: {request.form['cover_image_url']}")
+            cover_image_url = request.form['cover_image_url']
+        
+        logger.debug(f"最终cover_image_url: {cover_image_url}")
         
         # 创建活动
         # 处理时间字段
         registration_deadline = None
-        if 'registration_deadline' in data:
-            registration_deadline = datetime.fromisoformat(data['registration_deadline'])
+        if 'registration_deadline' in data and data['registration_deadline']:
+            registration_deadline = parse_datetime(data['registration_deadline'])
         
         refund_deadline = None
-        if 'refund_deadline' in data:
-            refund_deadline = datetime.fromisoformat(data['refund_deadline'])
+        if 'refund_deadline' in data and data['refund_deadline']:
+            refund_deadline = parse_datetime(data['refund_deadline'])
             
         new_activity = Activity(
             title=data['title'],
@@ -104,6 +151,17 @@ def create_activity():
                     activity_tag = ActivityTag(activity_id=new_activity.id, tag_id=tag_id)
                     db.session.add(activity_tag)
         
+        # 为发起人自动创建报名记录
+        from app.models import Enrollment
+        organizer_enrollment = Enrollment(
+            user_id=user.id,
+            activity_id=new_activity.id,
+            status='approved',  # 发起人自动通过审核
+            cost_paid=0.0,  # 初始费用为0
+            deposit_paid=0.0  # 初始押金为0
+        )
+        db.session.add(organizer_enrollment)
+        
         db.session.commit()
         
         return jsonify({
@@ -133,8 +191,8 @@ def get_activity_list():
     start_time_min = request.args.get('start_time_min')
     start_time_max = request.args.get('start_time_max')
     
-    # 构建查询
-    query = Activity.query.filter_by(is_published=True)
+    # 构建查询，排除已取消的活动
+    query = Activity.query.filter_by(is_published=True).filter(Activity.status != 'canceled')
     
     # 应用筛选条件
     if activity_type:
@@ -154,13 +212,13 @@ def get_activity_list():
     
     if start_time_min:
         try:
-            query = query.filter(Activity.start_time >= datetime.fromisoformat(start_time_min))
+            query = query.filter(Activity.start_time >= parse_datetime(start_time_min))
         except:
             pass
     
     if start_time_max:
         try:
-            query = query.filter(Activity.start_time <= datetime.fromisoformat(start_time_max))
+            query = query.filter(Activity.start_time <= parse_datetime(start_time_max))
         except:
             pass
     
@@ -210,7 +268,15 @@ def update_activity(activity_id):
     if not activity:
         return jsonify({'status': 'error', 'message': 'Activity not found'}), 404
     
-    data = request.get_json()
+    # 从请求中获取数据，支持JSON和表单数据
+    data = request.get_json(silent=True) or {}
+    
+    # 从表单数据中补充字段
+    for key in request.form:
+        if key not in data:
+            data[key] = request.form[key]
+    
+    # 如果既没有JSON数据也没有表单数据，返回错误
     if not data:
         return jsonify({'status': 'error', 'message': 'Invalid input'}), 400
     
@@ -234,21 +300,61 @@ def update_activity(activity_id):
         if 'latitude' in data:
             activity.latitude = data['latitude']
         
+        # 更新封面图片（支持URL或文件上传）
+        # 1. 首先检查是否有文件上传，支持多种字段名称（优先处理文件上传）
+        file_fields = ['cover_image', 'file', 'image', 'avatar']
+        file = None
+        
+        for field_name in file_fields:
+            if field_name in request.files:
+                file = request.files[field_name]
+                break
+        
+        if file and file.filename:
+            filename = secure_filename(file.filename)
+            upload_folder = current_app.config['UPLOAD_FOLDER']
+            if not os.path.exists(upload_folder):
+                os.makedirs(upload_folder)
+            
+            filepath = os.path.join(upload_folder, filename)
+            file.save(filepath)
+            activity.cover_image_url = f"/uploads/{filename}"
+        
+        # 2. 如果没有文件上传，检查是否有直接提供的图片URL
+        elif 'cover_image_url' in data:
+            activity.cover_image_url = data['cover_image_url']
+        
         if 'start_time' in data:
-            activity.start_time = datetime.fromisoformat(data['start_time'])
+            parsed_start_time = parse_datetime(data['start_time'])
+            if parsed_start_time:
+                activity.start_time = parsed_start_time
+            else:
+                return jsonify({'status': 'error', 'message': 'Invalid date format for start_time'}), 400
         
         if 'end_time' in data:
-            activity.end_time = datetime.fromisoformat(data['end_time'])
+            parsed_end_time = parse_datetime(data['end_time'])
+            if parsed_end_time:
+                activity.end_time = parsed_end_time
+            else:
+                return jsonify({'status': 'error', 'message': 'Invalid date format for end_time'}), 400
         
         if 'registration_deadline' in data:
             if data['registration_deadline']:
-                activity.registration_deadline = datetime.fromisoformat(data['registration_deadline'])
+                parsed_reg_deadline = parse_datetime(data['registration_deadline'])
+                if parsed_reg_deadline:
+                    activity.registration_deadline = parsed_reg_deadline
+                else:
+                    return jsonify({'status': 'error', 'message': 'Invalid date format for registration_deadline'}), 400
             else:
                 activity.registration_deadline = None
         
         if 'refund_deadline' in data:
             if data['refund_deadline']:
-                activity.refund_deadline = datetime.fromisoformat(data['refund_deadline'])
+                parsed_refund_deadline = parse_datetime(data['refund_deadline'])
+                if parsed_refund_deadline:
+                    activity.refund_deadline = parsed_refund_deadline
+                else:
+                    return jsonify({'status': 'error', 'message': 'Invalid date format for refund_deadline'}), 400
             else:
                 activity.refund_deadline = None
         
@@ -302,9 +408,34 @@ def update_activity(activity_id):
         
         db.session.commit()
         
+        return jsonify({        'status': 'success',        'message': 'Activity updated successfully',        'data': activity.to_dict()    }), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'status': 'error',
+            'message': f'Failed to update activity: {str(e)}'
+        }), 500
+
+
+# 取消活动
+@activity_bp.put('/<int:activity_id>/cancel')
+@jwt_required
+@is_organizer
+def cancel_activity(activity_id):
+    activity = Activity.query.get(activity_id)
+    if not activity:
+        return jsonify({'status': 'error', 'message': 'Activity not found'}), 404
+    
+    try:
+        # 更新活动状态为已取消
+        activity.status = 'canceled'
+        activity.is_published = False
+        
+        db.session.commit()
+        
         return jsonify({
             'status': 'success',
-            'message': 'Activity updated successfully',
+            'message': 'Activity canceled successfully',
             'data': activity.to_dict()
         }), 200
     except Exception as e:
@@ -349,18 +480,32 @@ def delete_activity(activity_id):
 
 # 获取用户创建的活动
 @activity_bp.get('/my-organized')
+@activity_bp.get('/created')  # 支持前端可能使用的端点名
+@activity_bp.get('/history')  # 支持前端可能使用的端点名
 @jwt_required
 def get_my_organized_activities():
     user = get_current_user()
     if not user:
         return jsonify({'status': 'error', 'message': 'User not found'}), 404
     
+    print(f"=== GET MY ORGANIZED ACTIVITIES START ===")
+    print(f"Current user: {user.id} - {user.nickname}")
+    
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
     
-    pagination = Activity.query.filter_by(organizer_id=user.id).order_by(Activity.created_at.desc()).paginate(
+    # 获取所有未取消的活动，不管是否发布
+    activities = Activity.query.filter_by(organizer_id=user.id).filter(Activity.status != 'canceled').order_by(Activity.created_at.desc()).all()
+    print(f"Total activities found: {len(activities)}")
+    for activity in activities:
+        print(f"Activity: {activity.id} - {activity.title} (published: {activity.is_published}, organizer_id: {activity.organizer_id}, status: {activity.status})")
+    
+    pagination = Activity.query.filter_by(organizer_id=user.id).filter(Activity.status != 'canceled').order_by(Activity.created_at.desc()).paginate(
         page=page, per_page=per_page, error_out=False
     )
+    
+    print(f"Paginated activities: {len(pagination.items)} (page: {page}, per_page: {per_page})")
+    print(f"=== GET MY ORGANIZED ACTIVITIES END ===")
     
     return jsonify({
         'status': 'success',
@@ -381,6 +526,7 @@ def get_my_organized_activities():
 
 # 获取用户参与的活动
 @activity_bp.get('/my-participated')
+@activity_bp.get('/joined')  # 支持前端旧的端点名
 @jwt_required
 def get_my_participated_activities():
     user = get_current_user()
@@ -394,7 +540,7 @@ def get_my_participated_activities():
     enrollments = Enrollment.query.filter_by(user_id=user.id).all()
     activity_ids = [enrollment.activity_id for enrollment in enrollments]
     
-    pagination = Activity.query.filter(Activity.id.in_(activity_ids)).order_by(Activity.start_time.desc()).paginate(
+    pagination = Activity.query.filter(Activity.id.in_(activity_ids)).filter(Activity.status != 'canceled').order_by(Activity.start_time.desc()).paginate(
         page=page, per_page=per_page, error_out=False
     )
     

@@ -82,15 +82,48 @@ def calculate_distance(lat1, lon1, lat2, lon2):
     return round(distance, 2)
 
 
+# 解析日期时间字符串，支持多种格式
+def parse_datetime(date_str):
+    if not date_str:
+        return None
+    
+    if isinstance(date_str, datetime):
+        return date_str
+    
+    # 支持的日期格式列表
+    formats = [
+        '%Y-%m-%dT%H:%M:%S',       # ISO 8601 格式
+        '%Y-%m-%dT%H:%M:%S.%f',    # ISO 8601 带毫秒
+        '%Y-%m-%dT%H:%M:%S%z',     # ISO 8601 带时区
+        '%Y-%m-%d %H:%M:%S',       # 普通格式 (年-月-日 时:分:秒)
+        '%Y/%m/%d %H:%M:%S',       # 普通格式 (年/月/日 时:分:秒)
+        '%Y-%m-%d %H:%M',          # 普通格式 (年-月-日 时:分)
+        '%Y/%m/%d %H:%M',          # 普通格式 (年/月/日 时:分)
+        '%Y-%m-%d',                # 日期格式 (年-月-日)
+        '%Y/%m/%d'                 # 日期格式 (年/月/日)
+    ]
+    
+    for fmt in formats:
+        try:
+            return datetime.strptime(date_str, fmt)
+        except ValueError:
+            continue
+    
+    # 最后尝试 fromisoformat (处理标准ISO格式)
+    try:
+        return datetime.fromisoformat(date_str)
+    except ValueError:
+        return None
+
+
 # 格式化日期时间
 def format_datetime(dt, format='%Y-%m-%d %H:%M:%S'):
     if not dt:
         return None
     
     if isinstance(dt, str):
-        try:
-            dt = datetime.fromisoformat(dt)
-        except:
+        dt = parse_datetime(dt)
+        if not dt:
             return None
     
     return dt.strftime(format)

@@ -25,10 +25,22 @@ def create_app(config_class='app.config.Config'):
     from app.routes.user import user_bp
     from app.routes.activity import activity_bp
     from app.routes.enrollment import enrollment_bp
+    from app.routes.upload import upload_bp
     
     app.register_blueprint(user_bp, url_prefix='/api/users')
     app.register_blueprint(activity_bp, url_prefix='/api/activities')
     app.register_blueprint(enrollment_bp, url_prefix='/api/enrollments')
+    app.register_blueprint(upload_bp, url_prefix='/api/upload')
+    
+    # 配置静态文件服务，用于访问上传的图片
+    from flask import send_from_directory
+    import os
+    
+    # 为/uploads/路径提供静态文件服务
+    @app.route('/uploads/<path:filename>')
+    def serve_uploads(filename):
+        upload_folder = app.config['UPLOAD_FOLDER']
+        return send_from_directory(upload_folder, filename)
     
     # 初始化默认管理员账户
     with app.app_context():

@@ -1,0 +1,18 @@
+# 忽略Python编译文件
+*.pyc
+__pycache__/
+
+# 忽略环境变量文件
+.env
+
+# 忽略上传的文件
+uploads/
+
+# 忽略数据库文件
+instance/app.db
+
+# 忽略IDE配置文件
+.idea/
+
+# 忽略日志文件
+*.log
