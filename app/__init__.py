@@ -1,5 +1,5 @@
 # app/__init__.py
-from flask import Flask
+from flask import Flask, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager
@@ -12,8 +12,32 @@ jwt = JWTManager()
 
 
 def create_app(config_class='app.config.Config'):
+    import logging
+    
+    # 配置详细日志
+    logging.basicConfig(level=logging.DEBUG)
+    
     app = Flask(__name__)
     app.config.from_object(config_class)
+    
+    # 添加请求日志中间件
+    @app.before_request
+    def log_request_info():
+        app.logger.debug('Request Headers: %s', dict(request.headers))
+        app.logger.debug('Request Body: %s', request.get_data(as_text=True))
+        app.logger.debug('Request URL: %s', request.url)
+        app.logger.debug('Request Method: %s', request.method)
+        app.logger.debug('Request Path: %s', request.path)
+        app.logger.debug('Request Host: %s', request.host)
+        app.logger.debug('Request Remote Addr: %s', request.remote_addr)
+    
+    # 添加路由匹配日志
+    @app.before_request
+    def log_route_matching():
+        app.logger.debug('Available routes:')
+        for rule in app.url_map.iter_rules():
+            if request.method in rule.methods and request.path == str(rule):
+                app.logger.debug('Route matched: %s -> %s', rule, rule.endpoint)
     
     # 初始化扩展
     db.init_app(app)
