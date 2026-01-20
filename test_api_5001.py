@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# 测试API接口
+# 测试API接口，使用端口5001
 
 import requests
 import json
@@ -7,7 +7,7 @@ import json
 # 1. 登录获取token
 def login():
     print("=== 登录获取token ===")
-    login_url = 'http://localhost:5000/api/users/login'
+    login_url = 'http://localhost:5001/api/users/login'
     login_data = {
         'phone': '13621114638',
         'password': 'admin123456'
@@ -25,7 +25,7 @@ def login():
 # 2. 测试报名接口
 def test_enroll(token):
     print("\n=== 测试报名接口 ===")
-    enroll_url = 'http://localhost:5000/api/enrollments/'
+    enroll_url = 'http://localhost:5001/api/enrollments/'
     headers = {
         'Authorization': f'Bearer {token}',
         'Content-Type': 'application/json'

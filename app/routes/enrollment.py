@@ -17,14 +17,50 @@ def enroll_activity():
         return jsonify({'status': 'error', 'message': 'User not found'}), 404
     
     data = request.get_json()
-    if not data or 'activity_id' not in data:
-        return jsonify({'status': 'error', 'message': 'Invalid input'}), 400
+    if not data:
+        return jsonify({'status': 'error', 'message': 'Invalid JSON data'}), 400
+        
+    # 支持多种参数名
+    activity_id = None
+    possible_activity_id_fields = ['activity_id', 'id', 'activityId']
+    for field_name in possible_activity_id_fields:
+        if field_name in data:
+            activity_id = data.get(field_name)
+            break
     
-    activity_id = data.get('activity_id')
+    if activity_id is None:
+        return jsonify({'status': 'error', 'message': 'Missing activity_id parameter'}), 400
+    
+    # 确保activity_id是整数
+    try:
+        activity_id = int(activity_id)
+        print(f'转换后的activity_id: {activity_id}, 类型: {type(activity_id)}')
+    except (ValueError, TypeError) as e:
+        print(f'activity_id转换失败: {activity_id}, 错误: {e}')
+        return jsonify({'status': 'error', 'message': 'Invalid activity_id format'}), 400
+    
     message = data.get('message', '')
+    
+    print(f'准备查找活动: ID={activity_id}')
     
     # 检查活动是否存在
     activity = Activity.query.get(activity_id)
+    print(f'查找结果: {activity}')
+    
+    # 如果使用get()找不到，尝试使用filter_by()
+    if not activity:
+        print('使用filter_by()再次尝试查找')
+        activity = Activity.query.filter_by(id=activity_id).first()
+        print(f'filter_by()查找结果: {activity}')
+    
+    # 检查数据库连接和表结构
+    print('检查数据库连接和表结构:')
+    try:
+        # 获取所有活动的ID
+        all_activity_ids = db.session.query(Activity.id).all()
+        print(f'所有活动ID: {all_activity_ids}')
+    except Exception as e:
+        print(f'检查数据库失败: {e}')
     if not activity:
         return jsonify({'status': 'error', 'message': 'Activity not found'}), 404
     
