@@ -1,23 +1,24 @@
--- 数据库表结构DDL脚本
--- 生成时间: 2026-01-18
--- 适用于MySQL数据库
+
+-- 数据库初始化脚本
+-- 生成时间: 2026-02-01 04:54:59.672530
+
+-- 禁用外键约束检查
+SET FOREIGN_KEY_CHECKS = 0;
+
+-- 删除现有表
+DROP TABLE IF EXISTS activity_tag;
+DROP TABLE IF EXISTS interest_tag;
+DROP TABLE IF EXISTS review;
+DROP TABLE IF EXISTS enrollment;
+DROP TABLE IF EXISTS activity;
+DROP TABLE IF EXISTS user;
+
+-- 启用外键约束检查
+SET FOREIGN_KEY_CHECKS = 1;
 
 
-CREATE TABLE interest_tag (
-	id INTEGER NOT NULL AUTO_INCREMENT, 
-	name VARCHAR(50) NOT NULL, 
-	category VARCHAR(50), 
-	description VARCHAR(200), 
-	created_at DATETIME, 
-	PRIMARY KEY (id), 
-	UNIQUE (name)
-)
-
-
-
-
-CREATE TABLE user (
-	id INTEGER NOT NULL AUTO_INCREMENT, 
+CREATE TABLE "user" (
+	id INTEGER NOT NULL, 
 	openid VARCHAR(100), 
 	nickname VARCHAR(50) NOT NULL, 
 	avatar VARCHAR(200), 
@@ -29,8 +30,8 @@ CREATE TABLE user (
 	bio TEXT, 
 	singing_style VARCHAR(100), 
 	credit_score INTEGER, 
-	is_verified BOOL, 
-	`role` VARCHAR(20), 
+	is_verified BOOLEAN, 
+	role VARCHAR(20), 
 	merchant_application_status VARCHAR(20), 
 	created_at DATETIME, 
 	updated_at DATETIME, 
@@ -43,7 +44,7 @@ CREATE TABLE user (
 
 
 CREATE TABLE activity (
-	id INTEGER NOT NULL AUTO_INCREMENT, 
+	id INTEGER NOT NULL, 
 	title VARCHAR(100) NOT NULL, 
 	description TEXT NOT NULL, 
 	activity_type VARCHAR(50), 
@@ -59,66 +60,40 @@ CREATE TABLE activity (
 	max_participants INTEGER NOT NULL, 
 	room_type VARCHAR(50), 
 	music_style VARCHAR(100), 
-	accept_beginners BOOL, 
-	accept_microphone_king BOOL, 
+	accept_beginners BOOLEAN, 
+	accept_microphone_king BOOLEAN, 
 	cost_type VARCHAR(50), 
 	estimated_cost_per_person FLOAT, 
 	total_cost FLOAT, 
 	deposit_amount FLOAT, 
 	status VARCHAR(50), 
-	is_published BOOL, 
+	is_published BOOLEAN, 
 	requirements TEXT, 
 	cover_image_url VARCHAR(255), 
 	images TEXT, 
 	created_at DATETIME, 
 	updated_at DATETIME, 
 	PRIMARY KEY (id), 
-	FOREIGN KEY(organizer_id) REFERENCES user (id)
-)
-
-
-
-
-CREATE TABLE user_tag (
-	id INTEGER NOT NULL AUTO_INCREMENT, 
-	user_id INTEGER NOT NULL, 
-	tag_id INTEGER NOT NULL, 
-	created_at DATETIME, 
-	PRIMARY KEY (id), 
-	FOREIGN KEY(user_id) REFERENCES user (id), 
-	FOREIGN KEY(tag_id) REFERENCES interest_tag (id)
-)
-
-
-
-
-CREATE TABLE activity_tag (
-	id INTEGER NOT NULL AUTO_INCREMENT, 
-	activity_id INTEGER NOT NULL, 
-	tag_id INTEGER NOT NULL, 
-	created_at DATETIME, 
-	PRIMARY KEY (id), 
-	FOREIGN KEY(activity_id) REFERENCES activity (id), 
-	FOREIGN KEY(tag_id) REFERENCES interest_tag (id)
+	FOREIGN KEY(organizer_id) REFERENCES "user" (id)
 )
 
 
 
 
 CREATE TABLE enrollment (
-	id INTEGER NOT NULL AUTO_INCREMENT, 
+	id INTEGER NOT NULL, 
 	user_id INTEGER NOT NULL, 
 	activity_id INTEGER NOT NULL, 
 	status VARCHAR(50), 
 	message TEXT, 
 	cost_paid FLOAT, 
 	deposit_paid FLOAT, 
-	deposit_transferred BOOL, 
+	deposit_transferred BOOLEAN, 
 	cancel_time DATETIME, 
 	created_at DATETIME, 
 	updated_at DATETIME, 
 	PRIMARY KEY (id), 
-	FOREIGN KEY(user_id) REFERENCES user (id), 
+	FOREIGN KEY(user_id) REFERENCES "user" (id), 
 	FOREIGN KEY(activity_id) REFERENCES activity (id)
 )
 
@@ -126,7 +101,7 @@ CREATE TABLE enrollment (
 
 
 CREATE TABLE review (
-	id INTEGER NOT NULL AUTO_INCREMENT, 
+	id INTEGER NOT NULL, 
 	from_user_id INTEGER NOT NULL, 
 	to_user_id INTEGER NOT NULL, 
 	activity_id INTEGER NOT NULL, 
@@ -134,9 +109,35 @@ CREATE TABLE review (
 	comment TEXT, 
 	created_at DATETIME, 
 	PRIMARY KEY (id), 
-	FOREIGN KEY(from_user_id) REFERENCES user (id), 
-	FOREIGN KEY(to_user_id) REFERENCES user (id), 
+	FOREIGN KEY(from_user_id) REFERENCES "user" (id), 
+	FOREIGN KEY(to_user_id) REFERENCES "user" (id), 
 	FOREIGN KEY(activity_id) REFERENCES activity (id)
+)
+
+
+
+
+CREATE TABLE interest_tag (
+	id INTEGER NOT NULL, 
+	name VARCHAR(50) NOT NULL, 
+	category VARCHAR(50), 
+	description VARCHAR(200), 
+	created_at DATETIME, 
+	PRIMARY KEY (id), 
+	UNIQUE (name)
+)
+
+
+
+
+CREATE TABLE activity_tag (
+	id INTEGER NOT NULL, 
+	activity_id INTEGER NOT NULL, 
+	tag_id INTEGER NOT NULL, 
+	created_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(activity_id) REFERENCES activity (id), 
+	FOREIGN KEY(tag_id) REFERENCES interest_tag (id)
 )
 
 

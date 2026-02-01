@@ -132,7 +132,7 @@ def create_activity():
             accept_beginners=data.get('accept_beginners', True),
             accept_microphone_king=data.get('accept_microphone_king', True),
             cost_type=data.get('cost_type', 'aa'),
-            estimated_cost_per_person=data.get('estimated_cost_per_person'),
+            estimated_cost_per_person=data.get('estimated_cost_per_person') or data.get('price'),
             total_cost=data.get('total_cost'),
             deposit_amount=data.get('deposit_amount', 0.0),
             requirements=data.get('requirements'),
@@ -228,11 +228,39 @@ def get_activity_list():
     # 分页
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
     
+    # 获取当前用户（如果已登录）
+    current_user = None
+    try:
+        from app.utils.auth import get_current_user
+        current_user = get_current_user()
+    except:
+        pass
+    
+    # 构建活动数据，添加用户报名状态
+    activities_data = []
+    for activity in pagination.items:
+        activity_dict = activity.to_dict()
+        # 检查用户是否已报名
+        if current_user:
+            from app.models import Enrollment
+            existing_enrollment = Enrollment.query.filter_by(
+                user_id=current_user.id, activity_id=activity.id
+            ).first()
+            activity_dict['is_enrolled'] = existing_enrollment is not None
+            if existing_enrollment:
+                activity_dict['enrollment_status'] = existing_enrollment.status
+            else:
+                activity_dict['enrollment_status'] = None
+        else:
+            activity_dict['is_enrolled'] = False
+            activity_dict['enrollment_status'] = None
+        activities_data.append(activity_dict)
+    
     return jsonify({
         'status': 'success',
         'message': 'Activities retrieved successfully',
         'data': {
-            'activities': [activity.to_dict() for activity in pagination.items],
+            'activities': activities_data,
             'pagination': {
                 'page': pagination.page,
                 'per_page': pagination.per_page,
@@ -252,10 +280,67 @@ def get_activity_detail(activity_id):
     if not activity or not activity.is_published:
         return jsonify({'status': 'error', 'message': 'Activity not found'}), 404
     
+    # 获取当前用户（如果已登录）
+    current_user = None
+    try:
+        from flask import request
+        from flask_jwt_extended import decode_token
+        from app.models import User
+        
+        # 从请求头中获取token
+        auth_header = request.headers.get('Authorization', '')
+        print(f"=== 请求头: {auth_header} ===")
+        
+        if auth_header.startswith('Bearer '):
+            token = auth_header.split(' ')[1]
+            print(f"=== Token: {token} ===")
+            
+            # 解析token
+            decoded = decode_token(token)
+            user_id = decoded.get('sub')
+            print(f"=== 解析用户ID: {user_id} ===")
+            
+            if user_id:
+                if isinstance(user_id, str) and user_id.isdigit():
+                    user_id = int(user_id)
+                current_user = User.query.get(user_id)
+                if current_user:
+                    print(f"=== 找到用户: {current_user.nickname} (ID: {current_user.id}) ===")
+                else:
+                    print(f"=== 未找到用户: {user_id} ===")
+            else:
+                print("=== 未获取到用户ID ===")
+        else:
+            print("=== 未提供有效的Authorization头 ===")
+    except Exception as e:
+        print(f"=== 获取用户信息失败: {str(e)} ===")
+    
+    # 构建活动数据，添加用户报名状态
+    activity_dict = activity.to_dict()
+    # 检查用户是否已报名
+    if current_user:
+        from app.models import Enrollment
+        existing_enrollment = Enrollment.query.filter_by(
+            user_id=current_user.id, activity_id=activity.id
+        ).first()
+        print(f"=== 检查报名状态: 用户ID={current_user.id}, 活动ID={activity.id} ===")
+        print(f"=== 报名记录: {existing_enrollment} ===")
+        activity_dict['is_enrolled'] = existing_enrollment is not None
+        if existing_enrollment:
+            activity_dict['enrollment_status'] = existing_enrollment.status
+            print(f"=== 报名状态: {existing_enrollment.status} ===")
+        else:
+            activity_dict['enrollment_status'] = None
+            print("=== 未报名 ===")
+    else:
+        activity_dict['is_enrolled'] = False
+        activity_dict['enrollment_status'] = None
+        print("=== 未登录用户 ===")
+    
     return jsonify({
         'status': 'success',
         'message': 'Activity detail retrieved',
-        'data': activity.to_dict()
+        'data': activity_dict
     }), 200
 
 
@@ -425,6 +510,11 @@ def cancel_activity(activity_id):
     activity = Activity.query.get(activity_id)
     if not activity:
         return jsonify({'status': 'error', 'message': 'Activity not found'}), 404
+    
+    # 检查是否在活动开始前2小时内，不允许取消
+    time_before_start = activity.start_time - datetime.utcnow()
+    if time_before_start.total_seconds() < 7200:  # 2小时 = 7200秒
+        return jsonify({'status': 'error', 'message': 'Activity cannot be canceled within 2 hours before start time'}), 400
     
     try:
         # 更新活动状态为已取消

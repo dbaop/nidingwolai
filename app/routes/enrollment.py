@@ -72,6 +72,12 @@ def enroll_activity():
     if activity.registration_deadline and datetime.utcnow() > activity.registration_deadline:
         return jsonify({'status': 'error', 'message': 'Registration deadline has passed'}), 400
     
+    # 检查是否在活动开始前1小时内，不允许报名
+    import math
+    time_before_start = activity.start_time - datetime.utcnow()
+    if time_before_start.total_seconds() < 3600:  # 1小时 = 3600秒
+        return jsonify({'status': 'error', 'message': 'Enrollment is not allowed within 1 hour before activity start time'}), 400
+    
     # 检查活动是否已满
     if activity.current_participants >= activity.max_participants:
         return jsonify({'status': 'error', 'message': 'Activity is full'}), 400
@@ -88,13 +94,17 @@ def enroll_activity():
         return jsonify({'status': 'error', 'message': 'Organizer cannot enroll in their own activity'}), 400
     
     try:
+        # 根据押金金额决定是否需要支付
+        needs_payment = activity.deposit_amount > 0
+        deposit_paid = False
+        
         # 创建报名记录
         enrollment = Enrollment(
             user_id=user.id,
             activity_id=activity_id,
             status='pending',
             message=message,
-            deposit_paid=activity.deposit_amount  # 自动支付押金
+            deposit_paid=deposit_paid
         )
         
         db.session.add(enrollment)
@@ -104,11 +114,23 @@ def enroll_activity():
         
         db.session.commit()
         
-        return jsonify({
+        # 构建响应
+        response_data = {
             'status': 'success',
-            'message': 'Enrolled successfully, waiting for organizer approval',
             'data': enrollment.to_dict()
-        }), 201
+        }
+        
+        if needs_payment:
+            # 需要押金，返回支付接口调用信息
+            response_data['message'] = 'Enrollment created, please complete deposit payment'
+            response_data['requires_payment'] = True
+            response_data['deposit_amount'] = activity.deposit_amount
+        else:
+            # 不需要押金，直接等待组织者审批
+            response_data['message'] = 'Enrollment created successfully, waiting for organizer approval'
+            response_data['requires_payment'] = False
+        
+        return jsonify(response_data), 201
     except Exception as e:
         db.session.rollback()
         return jsonify({
