@@ -12,6 +12,52 @@ config_name = os.environ.get('FLASK_CONFIG') or 'default'
 app = create_app(config[config_name])
 
 
+# ====== 出门前必加：最简活动创建接口（今晚效果闭环） ======
+import time
+from flask import request, jsonify
+
+@app.route('/api/activity/create', methods=['POST'])
+def create_activity():
+    try:
+        data = request.get_json()
+        # 模拟保存（不连 DB，只返回 mock ID）
+        activity_id = f"act_{int(time.time()) % 100000}"
+        return jsonify({
+            "status": "success",
+            "id": activity_id,
+            "message": "活动已创建，定金支付中...",
+            "data": {
+                "activity_id": activity_id,
+                "title": data.get("title", "未命名活动"),
+                "time": data.get("time", "2026-03-22 20:00"),
+                "location": data.get("location", "北京朝阳 KTV"),
+                "mode": data.get("mode", "AA"),  # "AA" or "host"
+                "deposit": data.get("deposit", 20)
+            }
+        }), 200
+    except Exception as e:
+        return jsonify({"error": "创建失败", "detail": str(e)}), 400
+
+@app.route('/api/activity/list', methods=['GET'])
+def list_activities():
+    return jsonify({
+        "status": "success",
+        "data": [
+            {
+                "id": "act_123456",
+                "title": "三里屯 K 歌局",
+                "time": "2026-03-22 20:00",
+                "location": "三里屯某 KTV",
+                "mode": "AA",
+                "deposit": 20,
+                "participants": 3,
+                "max": 6
+            }
+        ]
+    }), 200
+# ====== 到此为止 ======
+
+
 # 初始化默认管理员账户
 def init_default_admin():
     with app.app_context():
