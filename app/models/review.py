@@ -12,6 +12,11 @@ class Review(db.Model):
     comment = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
+    # 关系定义
+    reviewer = db.relationship('User', foreign_keys=[from_user_id], back_populates='reviews_given')
+    reviewee = db.relationship('User', foreign_keys=[to_user_id], back_populates='reviews_received')
+    activity = db.relationship('Activity', back_populates='reviews')
+    
     def __repr__(self):
         return f'<Review {self.from_user_id} -> {self.to_user_id} for Activity {self.activity_id}>'
     

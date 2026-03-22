@@ -50,7 +50,7 @@ class Activity(db.Model):
     
     # 关系
     enrollments = db.relationship('Enrollment', backref='activity', lazy=True)
-    reviews = db.relationship('Review', backref='activity', lazy=True)
+    reviews = db.relationship('Review', back_populates='activity', lazy=True)
     activity_tags = db.relationship('ActivityTag', backref='activity', lazy=True)
     
     def __repr__(self):

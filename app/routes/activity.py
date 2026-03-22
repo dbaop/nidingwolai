@@ -137,7 +137,8 @@ def create_activity():
             deposit_amount=data.get('deposit_amount', 0.0),
             requirements=data.get('requirements'),
             cover_image_url=cover_image_url,  # 添加封面图片URL
-            status='active' if start_time > datetime.utcnow() else 'completed'
+            status='active' if start_time > datetime.utcnow() else 'completed',
+            is_published=True  # 明确设置为发布状态
         )
         
         db.session.add(new_activity)

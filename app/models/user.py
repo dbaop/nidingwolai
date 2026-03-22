@@ -16,6 +16,7 @@ class User(db.Model):
     id_card = db.Column(db.String(20))
     bio = db.Column(db.Text)
     singing_style = db.Column(db.String(100))
+    birthday = db.Column(db.Date)  # 生日
     credit_score = db.Column(db.Integer, default=100)
     is_verified = db.Column(db.Boolean, default=False)
     role = db.Column(db.String(20), default='user')  # user:普通用户, merchant:商家, admin:管理员
@@ -37,8 +38,8 @@ class User(db.Model):
     # 关系
     activities = db.relationship('Activity', backref='organizer', lazy=True)
     enrollments = db.relationship('Enrollment', backref='user', lazy=True)
-    reviews_given = db.relationship('Review', foreign_keys='Review.from_user_id', backref='reviewer', lazy=True)
-    reviews_received = db.relationship('Review', foreign_keys='Review.to_user_id', backref='reviewee', lazy=True)
+    reviews_given = db.relationship('Review', foreign_keys='Review.from_user_id', back_populates='reviewer', lazy=True)
+    reviews_received = db.relationship('Review', foreign_keys='Review.to_user_id', back_populates='reviewee', lazy=True)
     user_tags = db.relationship('UserTag', backref='user', lazy=True)
     
     def __repr__(self):
@@ -53,6 +54,7 @@ class User(db.Model):
             'phone': self.phone,
             'bio': self.bio,
             'singing_style': self.singing_style,
+            'birthday': self.birthday.isoformat() if self.birthday else None,
             'credit_score': self.credit_score,
             'is_verified': self.is_verified,
             'role': self.role,

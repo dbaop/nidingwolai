@@ -50,11 +50,13 @@ def create_app(config_class='app.config.Config'):
     from app.routes.activity import activity_bp
     from app.routes.enrollment import enrollment_bp
     from app.routes.upload import upload_bp
+    from app.routes.review import review_bp
     
     app.register_blueprint(user_bp, url_prefix='/api/users')
     app.register_blueprint(activity_bp, url_prefix='/api/activities')
     app.register_blueprint(enrollment_bp, url_prefix='/api/enrollments')
     app.register_blueprint(upload_bp, url_prefix='/api/upload')
+    app.register_blueprint(review_bp, url_prefix='/api/reviews')
     
     # 配置静态文件服务，用于访问上传的图片
     from flask import send_from_directory

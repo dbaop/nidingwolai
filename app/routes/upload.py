@@ -36,7 +36,16 @@ def upload_image():
     # 检查文件类型
     if file and allowed_file(file.filename):
         # 生成安全的文件名
-        filename = secure_filename(file.filename)
+        original_filename = file.filename
+        filename = secure_filename(original_filename)
+        
+        # 确保文件名包含扩展名
+        if '.' not in filename:
+            # 从原始文件名中提取扩展名
+            if '.' in original_filename:
+                ext = original_filename.rsplit('.', 1)[1].lower()
+                if ext in ALLOWED_EXTENSIONS:
+                    filename = f"{filename}.{ext}"
         
         # 确保上传目录存在
         upload_folder = current_app.config['UPLOAD_FOLDER']
@@ -81,7 +90,16 @@ def upload_images():
     for file in files:
         if file and file.filename and allowed_file(file.filename):
             # 生成安全的文件名
-            filename = secure_filename(file.filename)
+            original_filename = file.filename
+            filename = secure_filename(original_filename)
+            
+            # 确保文件名包含扩展名
+            if '.' not in filename:
+                # 从原始文件名中提取扩展名
+                if '.' in original_filename:
+                    ext = original_filename.rsplit('.', 1)[1].lower()
+                    if ext in ALLOWED_EXTENSIONS:
+                        filename = f"{filename}.{ext}"
             
             # 确保上传目录存在
             upload_folder = current_app.config['UPLOAD_FOLDER']

@@ -213,6 +213,13 @@ def update_my_info():
     user.phone = data.get('phone', user.phone)
     user.bio = data.get('bio', user.bio)
     user.singing_style = data.get('singing_style', user.singing_style)
+    # 更新生日字段
+    if 'birthday' in data:
+        from datetime import datetime
+        try:
+            user.birthday = datetime.strptime(data['birthday'], '%Y-%m-%d').date()
+        except ValueError:
+            pass
     
     try:
         db.session.commit()
