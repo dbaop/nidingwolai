@@ -1,5 +1,6 @@
 # app.py
 import os
+import time
 from app import create_app
 from app.config import config
 from app.models.user import User
@@ -10,6 +11,17 @@ config_name = os.environ.get('FLASK_CONFIG') or 'default'
 
 # 创建应用实例
 app = create_app(config[config_name])
+
+
+# ====== 临时跳过认证（仅开发用，上线前务必删除） ======
+from flask import g, request
+
+@app.before_request
+def skip_auth_for_demo():
+    if request.path.startswith('/api/activity/'):
+        g.current_user = None
+        return
+# ====== 到此为止 ======
 
 
 # ====== 出门前必加：最简活动创建接口（今晚效果闭环） ======
