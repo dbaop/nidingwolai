@@ -192,8 +192,10 @@ def get_activity_list():
     start_time_min = request.args.get('start_time_min')
     start_time_max = request.args.get('start_time_max')
     
-    # 构建查询，排除已取消的活动
-    query = Activity.query.filter_by(is_published=True).filter(Activity.status != 'canceled')
+    # 构建查询，排除已取消的活动，并且只展示开始时间大于等于当前时间的活动
+    from datetime import datetime
+    now = datetime.utcnow()
+    query = Activity.query.filter_by(is_published=True).filter(Activity.status != 'canceled').filter(Activity.start_time >= now)
     
     # 应用筛选条件
     if activity_type:
@@ -223,8 +225,8 @@ def get_activity_list():
         except:
             pass
     
-    # 排序
-    query = query.order_by(Activity.start_time.desc())
+    # 排序：按创建时间倒序，最新的放在最上边
+    query = query.order_by(Activity.created_at.desc())
     
     # 分页
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)

@@ -51,10 +51,22 @@ def jwt_required(fn):
 
 # 获取当前用户
 def get_current_user():
-    user_id = get_jwt_identity()
-    if isinstance(user_id, str) and user_id.isdigit():
-        user_id = int(user_id)
-    return User.query.get(user_id)
+    try:
+        # 验证JWT token
+        from flask_jwt_extended import verify_jwt_in_request
+        verify_jwt_in_request(optional=True)
+        
+        # 获取用户ID
+        from flask_jwt_extended import get_jwt_identity
+        user_id = get_jwt_identity()
+        
+        if user_id:
+            if isinstance(user_id, str) and user_id.isdigit():
+                user_id = int(user_id)
+            return User.query.get(user_id)
+        return None
+    except:
+        return None
 
 
 # 权限验证装饰器
