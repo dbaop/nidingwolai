@@ -201,16 +201,17 @@ def update_my_info():
     user = get_current_user()
     if not user:
         return jsonify({'status': 'error', 'message': 'User not found'}), 404
-    
+
     data = request.get_json()
     if not data:
         return jsonify({'status': 'error', 'message': 'Invalid input'}), 400
-    
-    # 更新用户信息
+
+    # 更新用户信息（phone为空字符串时设为None，避免唯一约束冲突）
     user.nickname = data.get('nickname', user.nickname)
     user.avatar = data.get('avatar', user.avatar)
     user.gender = data.get('gender', user.gender)
-    user.phone = data.get('phone', user.phone)
+    phone = data.get('phone', user.phone)
+    user.phone = phone if phone else None
     user.bio = data.get('bio', user.bio)
     user.singing_style = data.get('singing_style', user.singing_style)
     # 更新生日字段
