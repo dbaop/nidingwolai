@@ -320,17 +320,24 @@ def apply_merchant():
     user = get_current_user()
     if not user:
         return jsonify({'status': 'error', 'message': 'User not found'}), 404
-    
+
     # 检查用户是否已经是商家或申请中
     if user.role == 'merchant':
         return jsonify({'status': 'error', 'message': 'You are already a merchant'}), 400
-    
+
     if user.merchant_application_status == 'pending':
         return jsonify({'status': 'error', 'message': 'Your application is already pending'}), 400
-    
-    # 更新用户申请状态
+
+    data = request.get_json()
+
+    # 保存商家申请信息
+    user.business_name = data.get('business_name')
+    user.contact_name = data.get('contact_name')
+    user.contact_phone = data.get('contact_phone')
+    user.business_address = data.get('address')
+    user.business_description = data.get('description')
     user.merchant_application_status = 'pending'
-    
+
     try:
         db.session.commit()
         return jsonify({

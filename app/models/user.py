@@ -22,6 +22,13 @@ class User(db.Model):
     role = db.Column(db.String(20), default='user')  # user:普通用户, merchant:商家, admin:管理员
     merchant_application_status = db.Column(db.String(20), default='none')  # none:未申请, pending:审核中, approved:已通过, rejected:已拒绝
     balance = db.Column(db.Float, default=0.0)  # 账户余额
+    # 商家申请信息
+    business_name = db.Column(db.String(100))  # 商家名称
+    contact_name = db.Column(db.String(50))  # 联系人
+    contact_phone = db.Column(db.String(20))  # 联系电话
+    business_address = db.Column(db.String(200))  # 商家地址
+    business_description = db.Column(db.Text)  # 商家简介
+    license_image = db.Column(db.String(500))  # 资质证明图片
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -61,6 +68,11 @@ class User(db.Model):
             'role': self.role,
             'merchant_application_status': self.merchant_application_status,
             'balance': self.balance,
+            'business_name': self.business_name,
+            'contact_name': self.contact_name,
+            'contact_phone': self.contact_phone,
+            'business_address': self.business_address,
+            'business_description': self.business_description,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
