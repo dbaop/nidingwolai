@@ -21,6 +21,7 @@ class User(db.Model):
     is_verified = db.Column(db.Boolean, default=False)
     role = db.Column(db.String(20), default='user')  # user:普通用户, merchant:商家, admin:管理员
     merchant_application_status = db.Column(db.String(20), default='none')  # none:未申请, pending:审核中, approved:已通过, rejected:已拒绝
+    balance = db.Column(db.Float, default=0.0)  # 账户余额
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -59,6 +60,7 @@ class User(db.Model):
             'is_verified': self.is_verified,
             'role': self.role,
             'merchant_application_status': self.merchant_application_status,
+            'balance': self.balance,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }

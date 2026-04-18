@@ -378,41 +378,41 @@ def review_merchant_application(user_id):
     current_user = get_current_user()
     if not current_user or current_user.role != 'admin':
         return jsonify({
-            'status': 'error', 
+            'status': 'error',
             'message': 'Permission denied'
         }), 403
-    
+
     data = request.get_json()
     if not data or 'status' not in data:
         return jsonify({
-            'status': 'error', 
+            'status': 'error',
             'message': 'Missing required fields'
         }), 400
-    
+
     status = data['status']
     if status not in ['approved', 'rejected']:
         return jsonify({
-            'status': 'error', 
+            'status': 'error',
             'message': 'Invalid status'
         }), 400
-    
+
     # 获取申请用户
     user = User.query.get(user_id)
     if not user or user.merchant_application_status != 'pending':
         return jsonify({
-            'status': 'error', 
+            'status': 'error',
             'message': 'Application not found or not pending'
         }), 404
-    
+
     try:
         if status == 'approved':
             user.role = 'merchant'
             user.merchant_application_status = 'approved'
         else:
             user.merchant_application_status = 'rejected'
-        
+
         db.session.commit()
-        
+
         return jsonify({
             'status': 'success',
             'message': f'Merchant application {status} successfully'
@@ -422,4 +422,105 @@ def review_merchant_application(user_id):
         return jsonify({
             'status': 'error',
             'message': f'Review failed: {str(e)}'
+        }), 500
+
+
+# 获取钱包信息
+@user_bp.get('/wallet')
+@jwt_required
+def get_wallet():
+    user = get_current_user()
+    if not user:
+        return jsonify({'status': 'error', 'message': 'User not found'}), 404
+
+    return jsonify({
+        'status': 'success',
+        'message': 'Wallet info retrieved',
+        'data': {
+            'balance': user.balance,
+            'user_id': user.id
+        }
+    }), 200
+
+
+# 充值
+@user_bp.post('/wallet/recharge')
+@jwt_required
+def recharge_wallet():
+    user = get_current_user()
+    if not user:
+        return jsonify({'status': 'error', 'message': 'User not found'}), 404
+
+    data = request.get_json()
+    if not data or 'amount' not in data:
+        return jsonify({'status': 'error', 'message': 'Missing amount'}), 400
+
+    amount = data.get('amount')
+    try:
+        amount = float(amount)
+    except (ValueError, TypeError):
+        return jsonify({'status': 'error', 'message': 'Invalid amount'}), 400
+
+    if amount <= 0:
+        return jsonify({'status': 'error', 'message': 'Amount must be positive'}), 400
+
+    try:
+        user.balance = user.balance + amount
+        db.session.commit()
+
+        return jsonify({
+            'status': 'success',
+            'message': 'Recharge successful',
+            'data': {
+                'balance': user.balance
+            }
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'status': 'error',
+            'message': f'Recharge failed: {str(e)}'
+        }), 500
+
+
+# 提现
+@user_bp.post('/wallet/withdraw')
+@jwt_required
+def withdraw_wallet():
+    user = get_current_user()
+    if not user:
+        return jsonify({'status': 'error', 'message': 'User not found'}), 404
+
+    data = request.get_json()
+    if not data or 'amount' not in data:
+        return jsonify({'status': 'error', 'message': 'Missing amount'}), 400
+
+    amount = data.get('amount')
+    try:
+        amount = float(amount)
+    except (ValueError, TypeError):
+        return jsonify({'status': 'error', 'message': 'Invalid amount'}), 400
+
+    if amount <= 0:
+        return jsonify({'status': 'error', 'message': 'Amount must be positive'}), 400
+
+    if user.balance < amount:
+        return jsonify({'status': 'error', 'message': 'Insufficient balance'}), 400
+
+    try:
+        user.balance = user.balance - amount
+        db.session.commit()
+
+        return jsonify({
+            'status': 'success',
+            'message': 'Withdrawal successful',
+            'data': {
+                'balance': user.balance
+            }
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'status': 'error',
+            'message': f'Withdrawal failed: {str(e)}'
         }), 500
