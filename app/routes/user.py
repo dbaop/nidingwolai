@@ -531,3 +531,102 @@ def withdraw_wallet():
             'status': 'error',
             'message': f'Withdrawal failed: {str(e)}'
         }), 500
+
+
+# 获取银行卡列表
+@user_bp.get('/bank-cards')
+@jwt_required
+def get_bank_cards():
+    user = get_current_user()
+    if not user:
+        return jsonify({'status': 'error', 'message': 'User not found'}), 404
+
+    cards = user.get_bank_cards()
+
+    return jsonify({
+        'status': 'success',
+        'message': 'Bank cards retrieved',
+        'data': {
+            'cards': cards,
+            'count': len(cards)
+        }
+    }), 200
+
+
+# 添加银行卡
+@user_bp.post('/bank-cards')
+@jwt_required
+def add_bank_card():
+    user = get_current_user()
+    if not user:
+        return jsonify({'status': 'error', 'message': 'User not found'}), 404
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'status': 'error', 'message': 'Invalid input'}), 400
+
+    bank_name = data.get('bank_name')
+    card_number = data.get('card_number')
+    account_name = data.get('account_name')
+
+    if not bank_name or not card_number or not account_name:
+        return jsonify({'status': 'error', 'message': 'Missing required fields'}), 400
+
+    # 简单的卡号格式验证（16-19位数字）
+    card_number_clean = ''.join(filter(str.isdigit, card_number))
+    if len(card_number_clean) < 16 or len(card_number_clean) > 19:
+        return jsonify({'status': 'error', 'message': 'Invalid card number'}), 400
+
+    import time
+    card_info = {
+        'id': int(time.time() * 1000),
+        'bank_name': bank_name,
+        'card_number': card_number_clean[-4:].rjust(len(card_number_clean), '*'),
+        'card_number_full': card_number_clean,
+        'account_name': account_name
+    }
+
+    try:
+        user.add_bank_card(card_info)
+        db.session.commit()
+
+        return jsonify({
+            'status': 'success',
+            'message': 'Bank card added successfully',
+            'data': {
+                'cards': user.get_bank_cards()
+            }
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'status': 'error',
+            'message': f'Failed to add bank card: {str(e)}'
+        }), 500
+
+
+# 删除银行卡
+@user_bp.delete('/bank-cards/<int:card_id>')
+@jwt_required
+def delete_bank_card(card_id):
+    user = get_current_user()
+    if not user:
+        return jsonify({'status': 'error', 'message': 'User not found'}), 404
+
+    try:
+        user.remove_bank_card(card_id)
+        db.session.commit()
+
+        return jsonify({
+            'status': 'success',
+            'message': 'Bank card deleted successfully',
+            'data': {
+                'cards': user.get_bank_cards()
+            }
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'status': 'error',
+            'message': f'Failed to delete bank card: {str(e)}'
+        }), 500

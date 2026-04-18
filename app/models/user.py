@@ -29,6 +29,7 @@ class User(db.Model):
     business_address = db.Column(db.String(200))  # 商家地址
     business_description = db.Column(db.Text)  # 商家简介
     license_image = db.Column(db.String(500))  # 资质证明图片
+    bank_cards = db.Column(db.Text)  # 银行卡列表，JSON格式
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -76,3 +77,24 @@ class User(db.Model):
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
+
+    def get_bank_cards(self):
+        import json
+        if self.bank_cards:
+            try:
+                return json.loads(self.bank_cards)
+            except:
+                return []
+        return []
+
+    def add_bank_card(self, card_info):
+        import json
+        cards = self.get_bank_cards()
+        cards.append(card_info)
+        self.bank_cards = json.dumps(cards, ensure_ascii=False)
+
+    def remove_bank_card(self, card_id):
+        import json
+        cards = self.get_bank_cards()
+        cards = [c for c in cards if c.get('id') != card_id]
+        self.bank_cards = json.dumps(cards, ensure_ascii=False)
